@@ -15,8 +15,12 @@ solution:
     - for-compiler: AC6 # GDB requires DWARF 5, remove when using uVision Debugger
       C-CPP:
         - -gdwarf-5
+        - -D__MICROLIB
       ASM:
         - -gdwarf-5
+        - -D__MICROLIB        
+      Link:
+        - --library_type=microlib   # <-- MicroLib 활성화
 
   # List the packs that define the device and/or board.
   packs:
@@ -31,6 +35,10 @@ solution:
         - set:
           images:
             - project-context: Project.Debug
+          debugger:
+            name: ST-Link@pyOCD
+            clock: 4000000
+            protocol: swd
 
   # List of different build configurations.
   build-types:

@@ -10,19 +10,33 @@ project:
     - Drivers/STM32F1xx_HAL_Driver/Inc
     - Drivers/CMSIS/Device/ST/STM32F1xx/Include
     - Drivers/CMSIS/Include
+    - MyApp
+    - MyApp/bsp
 
   groups:
     - group: Core
       files:
-        - file: Core/Src/gpio.c
         - file: Core/Src/main.c
         - file: Core/Src/stm32f1xx_hal_msp.c
         - file: Core/Src/stm32f1xx_it.c
+        - file: Core/Src/gpio.c
+        - file: Core/Src/adc.c
+        - file: Core/Src/i2c.c
+        - file: Core/Src/tim.c
+        - file: Core/Src/usart.c
+        - file: Core/Src/dma.c
+
 #        - file: Core/Src/system_stm32f1xx.c
     - group: STM32F1xx_HAL_Driver
       files:
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim_ex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_uart.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_exti.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c
@@ -32,6 +46,23 @@ project:
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c
         - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c
+
+    - group: MyApp
+      files:
+        - file: MyApp/appInit.c
+        - file: MyApp/appMain.c
+        - file: MyApp/bsp/bsp_gpio.c
+        - file: MyApp/bsp/bsp_i2c.c
+        - file: MyApp/bsp/bsp_adc.c
+        # - file: MyApp/bsp/bsp_dht11.c
+        # - file: MyApp/bsp/bsp_ds1302.c
+        # - file: MyApp/bsp/bsp_hcsr04.c
+        
+        # - file: MyApp/bsp/bsp_lcd1602.c
+        # - file: MyApp/bsp/bsp_ssd1306_spi.c
+        # - file: MyApp/bsp/bsp_ssd1306.c
+        - file: MyApp/bsp/bsp_timer.c
+        - file: MyApp/bsp/bsp_uart.c
 
   # List components to use for your application.
   # A software component is a re-usable unit that may be configurable.
