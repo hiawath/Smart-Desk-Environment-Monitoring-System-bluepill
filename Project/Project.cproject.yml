@@ -1,0 +1,48 @@
+# A project translates into one executable or library.
+project:
+
+  define:
+    - USE_HAL_DRIVER
+    - STM32F103xB
+
+  add-path:
+    - Core/Inc
+    - Drivers/STM32F1xx_HAL_Driver/Inc
+    - Drivers/CMSIS/Device/ST/STM32F1xx/Include
+    - Drivers/CMSIS/Include
+
+  groups:
+    - group: Core
+      files:
+        - file: Core/Src/gpio.c
+        - file: Core/Src/main.c
+        - file: Core/Src/stm32f1xx_hal_msp.c
+        - file: Core/Src/stm32f1xx_it.c
+#        - file: Core/Src/system_stm32f1xx.c
+    - group: STM32F1xx_HAL_Driver
+      files:
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_exti.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c
+        - file: Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c
+
+  # List components to use for your application.
+  # A software component is a re-usable unit that may be configurable.
+  components:
+    - component: ARM::CMSIS:CORE
+    - component: Device:Startup
+
+
+  # List executable file formats to be generated.
+  output:
+    type:
+      - elf
+      - hex
+      - map
