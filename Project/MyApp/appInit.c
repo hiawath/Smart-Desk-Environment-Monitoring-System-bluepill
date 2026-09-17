@@ -33,44 +33,43 @@ void bspInit(void)
   uartInit();
   i2cInit();
 
-  // /* LCD1602: I2C1 디바이스 인스턴스 및 슬레이브 주소(0x27) 주입 */
-  // lcd1602Init(&hlcd1602, &hi2c1, LCD1602_I2C_ADDR_DEFAULT);
+  /* LCD1602: I2C1 디바이스 인스턴스 및 슬레이브 주소(0x27) 주입 */
+  lcd1602Init(&hlcd1602, &hi2c1, LCD1602_I2C_ADDR_DEFAULT);
 
-  // if (hssd1306Spi.init()) {
-  //   hssd1306Spi.test(); // 안내 테스트 화면 출력
-
-  // }
+  if (hssd1306Spi.init()) {
+    hssd1306Spi.clear();
+  }
   
 
 
   adcInit();
 
-  // /* DS1302: CubeMX Label 매크로로 핀 정보 주입 */
-  // ds1302Pin_t ds1302_pins = {
-  //   .rst_port = DS1302_RST_GPIO_Port,
-  //   .rst_pin  = DS1302_RST_Pin,
-  //   .dat_port = DS1302_DATA_GPIO_Port,
-  //   .dat_pin  = DS1302_DATA_Pin,
-  //   .clk_port = DS1302_CLK_GPIO_Port,
-  //   .clk_pin  = DS1302_CLK_Pin,
-  // };
-  // ds1302Init(&hds1302, &ds1302_pins);
+  /* DS1302: CubeMX Label 매크로로 핀 정보 주입 */
+  ds1302Pin_t ds1302_pins = {
+    .rst_port = DS1302_RST_GPIO_Port,
+    .rst_pin  = DS1302_RST_Pin,
+    .dat_port = DS1302_DATA_GPIO_Port,
+    .dat_pin  = DS1302_DATA_Pin,
+    .clk_port = DS1302_CLK_GPIO_Port,
+    .clk_pin  = DS1302_CLK_Pin,
+  };
+  ds1302Init(&hds1302, &ds1302_pins);
 
-  // /* DHT11: CubeMX Label 매크로로 핀 정보 주입 */
-  // dht11Pin_t dht11_pins = {
-  //   .port = DHT11_GPIO_Port,
-  //   .pin  = DHT11_Pin,
-  // };
-  // dht11Init(&hdht11, &dht11_pins);
+  /* DHT11: CubeMX Label 매크로로 핀 정보 주입 */
+  dht11Pin_t dht11_pins = {
+    .port = DHT11_GPIO_Port,
+    .pin  = DHT11_Pin,
+  };
+  dht11Init(&hdht11, &dht11_pins);
 
-  // /* HC-SR04: CubeMX Label 매크로로 핀 정보 주입 */
-  // hcSr04Pin_t hcsr04_pins = {
-  //   .trig_port = HCSR04_TRIG_GPIO_Port,
-  //   .trig_pin  = HCSR04_TRIG_Pin,
-  //   .echo_port = HCSR04_ECHO_GPIO_Port,
-  //   .echo_pin  = HCSR04_ECHO_Pin,
-  // };
-  // hcSr04Init(&hhcSr04, &hcsr04_pins);
+  /* HC-SR04: CubeMX Label 매크로로 핀 정보 주입 */
+  hcSr04Pin_t hcsr04_pins = {
+    .trig_port = HCSR04_TRIG_GPIO_Port,
+    .trig_pin  = HCSR04_TRIG_Pin,
+    .echo_port = HCSR04_ECHO_GPIO_Port,
+    .echo_pin  = HCSR04_ECHO_Pin,
+  };
+  hcSr04Init(&hhcSr04, &hcsr04_pins);
 
   timerInit();
 
