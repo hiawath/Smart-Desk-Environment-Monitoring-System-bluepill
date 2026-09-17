@@ -10,7 +10,6 @@
 #include "bsp_hcsr04.h"
 #include "bsp_i2c.h"
 #include "bsp_lcd1602.h"
-#include "bsp_ssd1306.h"
 #include "bsp_uart.h"
 #include "bsp_timer.h"
 #include "bsp_ssd1306_spi.h"

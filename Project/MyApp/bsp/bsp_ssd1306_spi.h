@@ -42,3 +42,4 @@ void ssd1306SpiFillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint8_t colo
 void ssd1306SpiDrawChar(int16_t x, int16_t y, char ch, uint8_t color);
 void ssd1306SpiDrawString(int16_t x, int16_t y, const char *str, uint8_t color);
 void ssd1306SpiTest(void);
+uint8_t *ssd1306SpiGetBuffer(void);

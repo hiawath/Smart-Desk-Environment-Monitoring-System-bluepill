@@ -14,6 +14,7 @@ project:
     - MyApp/bsp
     - MyApp/app
     - MyApp/ui
+    - MyApp/gfx
 
   groups:
     - group: Core
@@ -60,6 +61,7 @@ project:
         - file: MyApp/app/app_log.c
         - file: MyApp/ui/ui_oled.c
         - file: MyApp/ui/ui_lcd.c
+        - file: MyApp/gfx/gfx.c
         - file: MyApp/bsp/bsp_gpio.c
         - file: MyApp/bsp/bsp_i2c.c
         - file: MyApp/bsp/bsp_adc.c

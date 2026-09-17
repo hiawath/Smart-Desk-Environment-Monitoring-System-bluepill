@@ -4,22 +4,22 @@
 
 void uiLcdInit(void)
 {
-  hlcd1602.clear();
-  hlcd1602.cursor(0, 0);
-  hlcd1602.print("Smart Desk Sys");
-  hlcd1602.cursor(1, 0);
-  hlcd1602.print("Initializing...");
+  lcd1602Clear(&hlcd1602);
+  lcd1602Cursor(&hlcd1602, 0, 0);
+  lcd1602Print(&hlcd1602, "Smart Desk Sys");
+  lcd1602Cursor(&hlcd1602, 1, 0);
+  lcd1602Print(&hlcd1602, "Initializing...");
 }
 
 void uiLcdSleep(void)
 {
-  hlcd1602.clear();
-  hlcd1602.backlight(false);
+  lcd1602Clear(&hlcd1602);
+  lcd1602Backlight(&hlcd1602, false);
 }
 
 void uiLcdWake(void)
 {
-  hlcd1602.backlight(true);
+  lcd1602Backlight(&hlcd1602, true);
 }
 
 void uiLcdRender(void)
@@ -27,11 +27,11 @@ void uiLcdRender(void)
   if (!g_sys.screen_on)
     return;
 
-  hlcd1602.cursor(0, 0);
-  hlcd1602.printf("%02d:%02d:%02d  %4.1fC",
-                  g_sys.rtc_time.hour, g_sys.rtc_time.min, g_sys.rtc_time.sec,
-                  g_sys.temperature_c);
-  hlcd1602.cursor(1, 0);
-  hlcd1602.printf("H:%2.0f%% D:%3.0f M:%2.0fC",
-                  g_sys.humidity_pct, g_sys.distance_cm, g_sys.mcu_temp_c);
+  lcd1602Cursor(&hlcd1602, 0, 0);
+  lcd1602Printf(&hlcd1602, "%02d:%02d:%02d  %4.1fC",
+                g_sys.rtc_time.hour, g_sys.rtc_time.min, g_sys.rtc_time.sec,
+                g_sys.temperature_c);
+  lcd1602Cursor(&hlcd1602, 1, 0);
+  lcd1602Printf(&hlcd1602, "H:%2.0f%% D:%3.0f M:%2.0fC",
+                g_sys.humidity_pct, g_sys.distance_cm, g_sys.mcu_temp_c);
 }

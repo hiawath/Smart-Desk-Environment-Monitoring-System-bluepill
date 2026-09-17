@@ -10,7 +10,7 @@ void sensorsInit(void)
   ds1302GetDateTime(&hds1302, &g_sys.rtc_time);
 
   dht11Data_t dht_data = {0};
-  if (hdht11.read(&dht_data))
+  if (dht11Read(&hdht11, &dht_data))
   {
     g_sys.temperature_c = dht_data.temperature;
     g_sys.humidity_pct  = dht_data.humidity;
@@ -21,7 +21,7 @@ void sensorsInit(void)
 void sensorsReadEnv(void)
 {
   dht11Data_t dht_data = {0};
-  if (hdht11.read(&dht_data))
+  if (dht11Read(&hdht11, &dht_data))
   {
     g_sys.temperature_c = dht_data.temperature;
     g_sys.humidity_pct  = dht_data.humidity;
@@ -43,7 +43,7 @@ void sensorsReadRtc(void)
 void sensorsReadDistance(void)
 {
   float raw_dist = 0.0f;
-  bool ok = hhcSr04.read(&raw_dist);
+  bool ok = hcSr04Read(&hhcSr04, &raw_dist);
 
   if (ok && raw_dist > 0.0f)
   {
