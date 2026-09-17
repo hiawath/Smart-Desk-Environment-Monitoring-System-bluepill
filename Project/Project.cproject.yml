@@ -12,6 +12,8 @@ project:
     - Drivers/CMSIS/Include
     - MyApp
     - MyApp/bsp
+    - MyApp/app
+    - MyApp/ui
 
   groups:
     - group: Core
@@ -51,6 +53,13 @@ project:
       files:
         - file: MyApp/appInit.c
         - file: MyApp/appMain.c
+        - file: MyApp/app/app_data.c
+        - file: MyApp/app/app_scheduler.c
+        - file: MyApp/app/app_sensors.c
+        - file: MyApp/app/app_power.c
+        - file: MyApp/app/app_log.c
+        - file: MyApp/ui/ui_oled.c
+        - file: MyApp/ui/ui_lcd.c
         - file: MyApp/bsp/bsp_gpio.c
         - file: MyApp/bsp/bsp_i2c.c
         - file: MyApp/bsp/bsp_adc.c
