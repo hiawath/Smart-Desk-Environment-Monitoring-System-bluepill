@@ -29,6 +29,7 @@ void appInit(void)
 
 void bspInit(void)
 {
+  delayInit();
   gpioInit();
   uartInit();
   i2cInit();

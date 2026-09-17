@@ -1,14 +1,5 @@
 #include "bsp_dht11.h"
-
-/* 마이크로초 딜레이 (STM32F103 72MHz 기준 소프트웨어 루프) */
-static void delayUs(uint32_t us)
-{
-  volatile uint32_t count = us * 8;
-  while (count--)
-  {
-    __NOP();
-  }
-}
+#include "bsp_delay.h"
 
 static void dht11SetPinOutput(dht11Handle_t *hdht)
 {
@@ -160,13 +151,12 @@ bool dht11Read(dht11Handle_t *hdht, dht11Data_t *data)
         }
       }
 
-      /* HIGH 지속 시간 측정 (26~28us: 0, 70us: 1) */
-      uint32_t high_duration_us = 0;
+      /* HIGH 지속 시간 측정 (26~28us: 0, 70us: 1) - DWT 기반 정밀 측정 */
+      uint32_t start_cycles = delayGetCycles();
+      uint32_t max_cycles = 120U * (SystemCoreClock / 1000000U);
       while (HAL_GPIO_ReadPin(hdht->pins.port, hdht->pins.pin) == GPIO_PIN_SET)
       {
-        delayUs(1);
-        high_duration_us++;
-        if (high_duration_us > 150)
+        if ((delayGetCycles() - start_cycles) > max_cycles)
         {
           dht11RestorePin(hdht);
           __enable_irq();
@@ -174,7 +164,7 @@ bool dht11Read(dht11Handle_t *hdht, dht11Data_t *data)
         }
       }
 
-      if (high_duration_us > 40)
+      if (delayCyclesToUs(start_cycles, delayGetCycles()) > 40)
       {
         raw_bytes[i] |= (1 << j);
       }

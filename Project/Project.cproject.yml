@@ -59,6 +59,7 @@ project:
         - file: MyApp/bsp/bsp_hcsr04.c
         - file: MyApp/bsp/bsp_lcd1602.c
         - file: MyApp/bsp/bsp_ssd1306_spi.c
+        - file: MyApp/bsp/bsp_delay.c
         - file: MyApp/bsp/bsp_timer.c
         - file: MyApp/bsp/bsp_uart.c
 

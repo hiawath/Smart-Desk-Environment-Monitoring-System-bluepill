@@ -3,6 +3,7 @@
 #include "main.h"
 
 #include "bsp_adc.h"
+#include "bsp_delay.h"
 #include "bsp_dht11.h"
 #include "bsp_ds1302.h"
 #include "bsp_gpio.h"

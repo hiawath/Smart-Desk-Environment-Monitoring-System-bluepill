@@ -1,16 +1,7 @@
 #include "bsp_hcsr04.h"
+#include "bsp_delay.h"
 
 static hcSr04Handle_t *s_active_hc = NULL;
-
-/* 마이크로초 딜레이 (STM32F103 72MHz 전용 정밀 NOP 루프) */
-static inline void delayUs(uint32_t us)
-{
-  volatile uint32_t count = us * 8;
-  while (count--)
-  {
-    __NOP();
-  }
-}
 
 /* ----------------------------------------------------------------
  * 객체 지향 메서드 래퍼 함수들 (hcSr04_ 네임스페이스)
@@ -32,20 +23,10 @@ static float hcSr04_getDistance(void)
 
 void hcSr04Init(hcSr04Handle_t *hhc, const hcSr04Pin_t *pins)
 {
-  if (!hhc)
+  if (!hhc || !pins)
     return;
 
-  if (pins)
-  {
-    hhc->pins = *pins;
-  }
-  else
-  {
-    hhc->pins.trig_port = pins->trig_port;
-    hhc->pins.trig_pin  = pins->trig_pin;
-    hhc->pins.echo_port = pins->echo_port;
-    hhc->pins.echo_pin  = pins->echo_pin;
-  }
+  hhc->pins = *pins;
 
   hhc->latest_distance = 0.0f;
   hhc->fail_count      = 0;
@@ -121,15 +102,12 @@ bool hcSr04Read(hcSr04Handle_t *hhc, float *distance_cm)
     }
   }
 
-  /* 3. Echo 핀 HIGH 지속 시간 카운팅 (루프 1회 = 약 1.0us 정밀 보정, 최대 25ms ≈ 430cm) */
-  uint32_t duration_count = 0;
+  /* 3. Echo 핀 HIGH 지속 시간 측정 (DWT 사이클 카운터 기반 정밀 측정, 최대 25ms ≈ 430cm) */
+  uint32_t start_cycles = delayGetCycles();
+  uint32_t max_cycles = 25000U * (SystemCoreClock / 1000000U);
   while (HAL_GPIO_ReadPin(hhc->pins.echo_port, hhc->pins.echo_pin) == GPIO_PIN_SET)
   {
-    /* 1회 루프당 약 1.0us가 되도록 튜닝된 딜레이 */
-    volatile uint32_t c = 34;
-    while (c--) { __NOP(); }
-    duration_count++;
-    if (duration_count > 25000)
+    if ((delayGetCycles() - start_cycles) > max_cycles)
     {
       if (++hhc->fail_count > 4 && distance_cm) *distance_cm = 0.0f;
       return false;
@@ -137,7 +115,8 @@ bool hcSr04Read(hcSr04Handle_t *hhc, float *distance_cm)
   }
 
   /* 4. 거리(cm) 환산 (음속 340m/s: 시간(us) / 58.0) */
-  float dist = (float)duration_count / 58.0f;
+  uint32_t duration_us = delayCyclesToUs(start_cycles, delayGetCycles());
+  float dist = (float)duration_us / 58.0f;
 
   /* 유효 거리 범위 체크 (2cm ~ 400cm) */
   if (dist >= 2.0f && dist <= 400.0f)

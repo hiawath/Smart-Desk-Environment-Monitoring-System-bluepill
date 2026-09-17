@@ -32,15 +32,7 @@ static inline uint8_t bcdToDec(uint8_t val)
   return (uint8_t)(((val >> 4) * 10) + (val & 0x0F));
 }
 
-/* 마이크로초 딜레이 (STM32F103 72MHz 기준 소프트웨어 루프) */
-static void delayUs(uint32_t us)
-{
-  volatile uint32_t count = us * 8;
-  while (count--)
-  {
-    __NOP();
-  }
-}
+#include "bsp_delay.h"
 
 static void ds1302GpioInit(ds1302Handle_t *hds)
 {

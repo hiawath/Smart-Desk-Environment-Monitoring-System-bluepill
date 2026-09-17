@@ -82,35 +82,3 @@ void gpioInit(void)
   bgrInit();
 }
 
-/**
-  * @brief  EXTI Falling Edge 인터럽트 콜백 함수 (버튼 누름 감지)
-  * @param  GPIO_Pin: 인터럽트 발생 핀
-  */
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
-{
-  if (GPIO_Pin == GPIO_PIN_15)
-  {
-    /* 버튼 채터링(바운싱) 방지를 위한 소프트웨어 디바운스 (200ms) */
-    static uint32_t last_press_tick = 0;
-    uint32_t now = HAL_GetTick();
-
-    if (now - last_press_tick >= 200)
-    {
-      last_press_tick = now;
-      timerBreathingNextStep();
-    }
-  }
-}
-
-/**
-  * @brief  EXTI Rising Edge 인터럽트 콜백 함수 (버튼 뗌 감지 등)
-  * @param  GPIO_Pin: 인터럽트 발생 핀
-  */
-void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
-{
-  if (GPIO_Pin == GPIO_PIN_13)
-  {
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-  }
-}
-
