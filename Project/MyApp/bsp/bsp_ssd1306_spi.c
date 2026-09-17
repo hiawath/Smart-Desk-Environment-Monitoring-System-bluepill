@@ -1,5 +1,4 @@
 #include "bsp_ssd1306_spi.h"
-#include "spi.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -120,7 +119,22 @@ static const uint8_t font6x8[][6] = {
   { 0x08, 0x08, 0x2A, 0x1C, 0x08, 0x00 }  // '~'
 };
 
-/* ---------------- SPI 하위 전송 함수 ---------------- */
+/* ---------------- 고속 Bit-Banging SPI 전송 함수 ---------------- */
+
+static inline void ssd1306SpiTransmitByte(uint8_t byte)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    HAL_GPIO_WritePin(SSD1306_SCK_GPIO_Port, SSD1306_SCK_Pin, GPIO_PIN_RESET);
+    if (byte & 0x80) {
+      HAL_GPIO_WritePin(SSD1306_MOSI_GPIO_Port, SSD1306_MOSI_Pin, GPIO_PIN_SET);
+    } else {
+      HAL_GPIO_WritePin(SSD1306_MOSI_GPIO_Port, SSD1306_MOSI_Pin, GPIO_PIN_RESET);
+    }
+    HAL_GPIO_WritePin(SSD1306_SCK_GPIO_Port, SSD1306_SCK_Pin, GPIO_PIN_SET);
+    byte <<= 1;
+  }
+}
 
 static void ssd1306SpiWriteCommand(const uint8_t *cmd, uint16_t len)
 {
@@ -128,17 +142,15 @@ static void ssd1306SpiWriteCommand(const uint8_t *cmd, uint16_t len)
   HAL_GPIO_WritePin(SSD1306_DC_GPIO_Port, SSD1306_DC_Pin, GPIO_PIN_RESET);
 
   /* CS = LOW (Chip Select) */
-  HAL_GPIO_WritePin(SPI1_SS_GPIO_Port, SPI1_SS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SSD1306_CS_GPIO_Port, SSD1306_CS_Pin, GPIO_PIN_RESET);
 
-  HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi1, (uint8_t *)cmd, len, 100);
+  for (uint16_t i = 0; i < len; i++)
+  {
+    ssd1306SpiTransmitByte(cmd[i]);
+  }
 
   /* CS = HIGH (Deselect) */
-  HAL_GPIO_WritePin(SPI1_SS_GPIO_Port, SPI1_SS_Pin, GPIO_PIN_SET);
-
-  if (status != HAL_OK)
-  {
-    printf("[SSD1306_SPI] ERR: WriteCommand failed (status=%d)\r\n", status);
-  }
+  HAL_GPIO_WritePin(SSD1306_CS_GPIO_Port, SSD1306_CS_Pin, GPIO_PIN_SET);
 }
 
 static void ssd1306SpiWriteData(const uint8_t *data, uint16_t len)
@@ -147,17 +159,15 @@ static void ssd1306SpiWriteData(const uint8_t *data, uint16_t len)
   HAL_GPIO_WritePin(SSD1306_DC_GPIO_Port, SSD1306_DC_Pin, GPIO_PIN_SET);
 
   /* CS = LOW (Chip Select) */
-  HAL_GPIO_WritePin(SPI1_SS_GPIO_Port, SPI1_SS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SSD1306_CS_GPIO_Port, SSD1306_CS_Pin, GPIO_PIN_RESET);
 
-  HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi1, (uint8_t *)data, len, 200);
+  for (uint16_t i = 0; i < len; i++)
+  {
+    ssd1306SpiTransmitByte(data[i]);
+  }
 
   /* CS = HIGH (Deselect) */
-  HAL_GPIO_WritePin(SPI1_SS_GPIO_Port, SPI1_SS_Pin, GPIO_PIN_SET);
-
-  if (status != HAL_OK)
-  {
-    printf("[SSD1306_SPI] ERR: WriteData failed (status=%d)\r\n", status);
-  }
+  HAL_GPIO_WritePin(SSD1306_CS_GPIO_Port, SSD1306_CS_Pin, GPIO_PIN_SET);
 }
 
 /* ---------------- 초기화 및 기본 제어 API ---------------- */
@@ -167,53 +177,32 @@ bool ssd1306SpiInit(void)
   printf("\r\n========================================\r\n");
   printf("[SSD1306_SPI] Initializing 7-Pin SPI OLED...\r\n");
 
-  /* 1. SPI1 통신 속도 및 데이터 크기 보정
-   *    - 기본 CubeMX Prescaler=2(125MHz)는 SSD1306 한계(10MHz)를 초과하므로 32(~7.8MHz)로 낮춤
-   *    - DataSize를 8비트로 설정
-   */
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32; // 250MHz / 32 = 약 7.8MHz (최적 안정 주파수)
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    printf("[SSD1306_SPI] ERR: HAL_SPI_Init failed!\r\n");
-    return false;
-  }
-  printf("[SSD1306_SPI] SPI1 Configured: 8-Bit, ~7.8MHz (Prescaler 32)\r\n");
+  /* 통신 핀 GPIO 클럭 및 속도 고속(High Speed) 구성 */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  /* 2. 통신 핀 GPIO 속도 고속(High Speed) 재구성 */
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 
-  /* DC Pin (PC13) */
-  GPIO_InitStruct.Pin = SSD1306_DC_Pin;
-  HAL_GPIO_Init(SSD1306_DC_GPIO_Port, &GPIO_InitStruct);
+  /* CS(PA4), SCK(PA5), DC(PA6), MOSI(PA7), RES(PA1) */
+  GPIO_InitStruct.Pin = SSD1306_CS_Pin | SSD1306_SCK_Pin | SSD1306_DC_Pin | SSD1306_MOSI_Pin | SSD1306_RES_Pin;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /* CS Pin (PA4) */
-  GPIO_InitStruct.Pin = SPI1_SS_Pin;
-  HAL_GPIO_Init(SPI1_SS_GPIO_Port, &GPIO_InitStruct);
-
-  /* CS 기본 비활성화(HIGH), DC 기본 LOW */
-  HAL_GPIO_WritePin(SPI1_SS_GPIO_Port, SPI1_SS_Pin, GPIO_PIN_SET);
+  /* CS 비활성화(HIGH), SCK LOW, DC LOW, MOSI LOW */
+  HAL_GPIO_WritePin(SSD1306_CS_GPIO_Port, SSD1306_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SSD1306_SCK_GPIO_Port, SSD1306_SCK_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(SSD1306_DC_GPIO_Port, SSD1306_DC_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SSD1306_MOSI_GPIO_Port, SSD1306_MOSI_Pin, GPIO_PIN_RESET);
 
-  /* 3. 하드웨어 리셋 펄스 수행 (PA10) */
-#ifdef SSD1306_RES_Pin
-  GPIO_InitStruct.Pin = SSD1306_RES_Pin;
-  HAL_GPIO_Init(SSD1306_RES_GPIO_Port, &GPIO_InitStruct);
-
+  /* 하드웨어 리셋 펄스 수행 (PA1) */
   printf("[SSD1306_SPI] Performing Hardware Reset on RES Pin...\r\n");
   HAL_GPIO_WritePin(SSD1306_RES_GPIO_Port, SSD1306_RES_Pin, GPIO_PIN_RESET);
   HAL_Delay(20); /* 20ms 리셋 유지 */
   HAL_GPIO_WritePin(SSD1306_RES_GPIO_Port, SSD1306_RES_Pin, GPIO_PIN_SET);
   HAL_Delay(50); /* 전원 및 차지펌프 안정화 대기 (50ms) */
   printf("[SSD1306_SPI] Reset complete. RES pin is HIGH (3.3V)\r\n");
-#else
-  HAL_Delay(100);
-#endif
+
 
   /* 4. SSD1306 / SH1106 표준 초기화 커맨드 전송
    *    - 내부 DC-DC 차지펌프 활성화(0x8D 0x14)

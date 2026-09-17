@@ -2,10 +2,10 @@
 
 static hcSr04Handle_t *s_active_hc = NULL;
 
-/* 마이크로초 딜레이 (STM32H523 250MHz 전용 정밀 NOP 루프) */
+/* 마이크로초 딜레이 (STM32F103 72MHz 전용 정밀 NOP 루프) */
 static inline void delayUs(uint32_t us)
 {
-  volatile uint32_t count = us * 42;
+  volatile uint32_t count = us * 8;
   while (count--)
   {
     __NOP();

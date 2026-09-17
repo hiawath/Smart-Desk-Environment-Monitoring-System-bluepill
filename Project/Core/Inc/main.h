@@ -70,6 +70,40 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+/* DS1302 Real-Time Clock Pins */
+#define DS1302_RST_Pin          GPIO_PIN_12
+#define DS1302_RST_GPIO_Port    GPIOB
+#define DS1302_DATA_Pin         GPIO_PIN_13
+#define DS1302_DATA_GPIO_Port   GPIOB
+#define DS1302_CLK_Pin          GPIO_PIN_14
+#define DS1302_CLK_GPIO_Port    GPIOB
+
+/* DHT11 Temperature & Humidity Sensor Pin */
+#define DHT11_Pin               GPIO_PIN_15
+#define DHT11_GPIO_Port         GPIOB
+
+/* HC-SR04 Ultrasonic Distance Sensor Pins */
+#define HCSR04_TRIG_Pin         GPIO_PIN_8
+#define HCSR04_TRIG_GPIO_Port   GPIOA
+#define HCSR04_ECHO_Pin         GPIO_PIN_9
+#define HCSR04_ECHO_GPIO_Port   GPIOA
+
+/* SSD1306 SPI OLED Display Pins */
+#define SSD1306_CS_Pin          GPIO_PIN_4
+#define SSD1306_CS_GPIO_Port    GPIOA
+#define SSD1306_SCK_Pin         GPIO_PIN_5
+#define SSD1306_SCK_GPIO_Port   GPIOA
+#define SSD1306_DC_Pin          GPIO_PIN_6
+#define SSD1306_DC_GPIO_Port    GPIOA
+#define SSD1306_MOSI_Pin        GPIO_PIN_7
+#define SSD1306_MOSI_GPIO_Port  GPIOA
+#define SSD1306_RES_Pin         GPIO_PIN_1
+#define SSD1306_RES_GPIO_Port   GPIOA
+
+/* Legacy alias for SPI1_SS_Pin */
+#define SPI1_SS_Pin             SSD1306_CS_Pin
+#define SPI1_SS_GPIO_Port       SSD1306_CS_GPIO_Port
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
