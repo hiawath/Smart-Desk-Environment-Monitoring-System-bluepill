@@ -26,7 +26,6 @@ void timerPwmStop(void);
 void timerSetDuty(ledId_t id, float duty_percent);
 uint8_t timerGetDuty(ledId_t id);
 
-void timerSetDutyFloat(float duty_percent);
 void timerLedUpdate(void);
 
 /* Breathing 모드 5단계 제어 함수 */

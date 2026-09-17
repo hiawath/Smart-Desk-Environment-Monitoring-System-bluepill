@@ -1,4 +1,5 @@
 #include "bsp_lcd1602.h"
+#include "bsp_i2c.h"
 #include "main.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,6 +19,12 @@ static bool i2c_send(lcd1602Handle_t *hlcd, uint8_t *buf, uint16_t len)
     /* 일시적 BUSY/NACK 시 짧은 딜레이 후 1회 재시도 */
     HAL_Delay(1);
     ret = HAL_I2C_Master_Transmit(hi2c, hlcd->addr, buf, len, 20);
+    if (ret != HAL_OK)
+    {
+      /* 2회 실패 시 I2C 하드웨어 버스 복구 수행 후 최종 재시도 */
+      i2cBusRecover();
+      ret = HAL_I2C_Master_Transmit(hi2c, hlcd->addr, buf, len, 20);
+    }
   }
   return (ret == HAL_OK);
 }

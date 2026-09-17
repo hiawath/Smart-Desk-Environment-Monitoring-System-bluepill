@@ -6,8 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-static uint8_t s_current_duty = 50;
-
 typedef struct _ledChannel_t {
   TIM_HandleTypeDef *htim;
   uint32_t channel;
@@ -15,15 +13,13 @@ typedef struct _ledChannel_t {
   uint32_t offset_ms;
   bool breath_enable;
   uint8_t current_duty;
-  bool is_n_channel; /* N(Complementary) 채널 여부: true 시
-                        HAL_TIMEx_PWMN_Start/Stop 사용 */
   bool invert_duty;  /* 신호가 반대로 출력되는 경우 듀티 보정 */
 } ledChannel_t;
 
 static ledChannel_t s_led_table[LED_MAX_COUNT] = {
-    [LED_1] = {&htim2, TIM_CHANNEL_4, 3000,    0, true, 0, false, false}, /* BGR_B: PB11 (TIM2 CH4 PWM) */
-    [LED_2] = {&htim2, TIM_CHANNEL_3, 3000, 1000, true, 0, false, false}, /* BGR_G: PB10 (TIM2 CH3 PWM) */
-    [LED_3] = {&htim3, TIM_CHANNEL_4, 3000, 2000, true, 0, false, false}, /* BGR_R: PB1  (TIM3 CH4 PWM) */
+    [LED_1] = {&htim2, TIM_CHANNEL_4, 3000,    0, true, 0, false}, /* BGR_B: PB11 (TIM2 CH4 PWM) */
+    [LED_2] = {&htim2, TIM_CHANNEL_3, 3000, 1000, true, 0, false}, /* BGR_G: PB10 (TIM2 CH3 PWM) */
+    [LED_3] = {&htim3, TIM_CHANNEL_4, 3000, 2000, true, 0, false}, /* BGR_R: PB1  (TIM3 CH4 PWM) */
 };
 
 void timerInit(void) {
@@ -126,18 +122,6 @@ void timerSetDuty(ledId_t id, float duty_percent) {
 }
 
 
-void timerSetDutyFloat(float duty_percent) {
-  if (duty_percent < 0.0f)
-    duty_percent = 0.0f;
-  if (duty_percent > 100.0f)
-    duty_percent = 100.0f;
-
-  s_current_duty = (uint8_t)(duty_percent + 0.5f);
-
-  for (int i = 0; i < LED_MAX_COUNT; i++) {
-    timerSetDuty((ledId_t)i, duty_percent);
-  }
-}
 
 uint8_t timerGetDuty(ledId_t id) {
   if (id < LED_MAX_COUNT) {
