@@ -192,6 +192,15 @@ const char* ds1302GetDayStr(uint8_t day_of_week)
   return day_names[0];
 }
 
+static uint8_t calculateDayOfWeek(uint16_t y, uint8_t m, uint8_t d)
+{
+  static const int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+  if (m < 3) y -= 1;
+  /* 0 = Sunday, 1 = Monday, ..., 6 = Saturday */
+  int dow = (y + y/4 - y/100 + y/400 + t[m-1] + d) % 7;
+  return (uint8_t)(dow + 1); /* DS1302: 1 = Sunday, 2 = Monday, ..., 7 = Saturday */
+}
+
 void ds1302SetDateTime(ds1302Handle_t *hds, const ds1302Time_t *time)
 {
   if (!hds || !time)
@@ -199,9 +208,9 @@ void ds1302SetDateTime(ds1302Handle_t *hds, const ds1302Time_t *time)
 
   ds1302WriteReg(hds, DS1302_REG_WP, 0x00); /* Write Protect 해제 */
 
-  ds1302WriteReg(hds, DS1302_REG_SEC,   decToBcd(time->sec)  & 0x7F); /* CH=0 */
+  ds1302WriteReg(hds, DS1302_REG_SEC,   decToBcd(time->sec)  & 0x7F); /* CH=0 (발진기 가동) */
   ds1302WriteReg(hds, DS1302_REG_MIN,   decToBcd(time->min)  & 0x7F);
-  ds1302WriteReg(hds, DS1302_REG_HOUR,  decToBcd(time->hour) & 0x3F); /* 24시간 모드 */
+  ds1302WriteReg(hds, DS1302_REG_HOUR,  decToBcd(time->hour) & 0x3F); /* 24시간 모드 (Bit 7 = 0) */
   ds1302WriteReg(hds, DS1302_REG_DATE,  decToBcd(time->day)  & 0x3F);
   ds1302WriteReg(hds, DS1302_REG_MONTH, decToBcd(time->month)       & 0x1F);
   ds1302WriteReg(hds, DS1302_REG_DAY,   decToBcd(time->day_of_week) & 0x07);
@@ -217,7 +226,7 @@ void ds1302SetTime(ds1302Handle_t *hds, uint16_t year, uint8_t month, uint8_t da
   t.year        = year;
   t.month       = month;
   t.day         = day;
-  t.day_of_week = 1;
+  t.day_of_week = calculateDayOfWeek(year, month, day);
   t.hour        = hour;
   t.min         = min;
   t.sec         = sec;
@@ -251,11 +260,34 @@ bool ds1302GetDateTime(ds1302Handle_t *hds, ds1302Time_t *time)
 
   time->sec         = bcdToDec(sec_raw & 0x7F);
   time->min         = bcdToDec(min_raw & 0x7F);
-  time->hour        = bcdToDec(hour_raw & 0x3F);
+
+  /* Hour 레지스터 디코딩 (12시간 / 24시간 모드 완벽 지원) */
+  if (hour_raw & 0x80)
+  {
+    /* 12시간 모드 (Bit 7 = 1): Bit 5는 AM/PM (1 = PM), Bit 4..0은 BCD Hour */
+    bool is_pm = (hour_raw & 0x20) != 0;
+    uint8_t h = bcdToDec(hour_raw & 0x1F);
+    if (is_pm && h < 12) h += 12;
+    if (!is_pm && h == 12) h = 0;
+    time->hour = h;
+  }
+  else
+  {
+    /* 24시간 모드 (Bit 7 = 0): Bit 5..4는 10-Hour, Bit 3..0은 Unit-Hour */
+    time->hour = bcdToDec(hour_raw & 0x3F);
+  }
+
   time->day         = bcdToDec(date_raw & 0x3F);
   time->month       = bcdToDec(mon_raw & 0x1F);
   time->day_of_week = bcdToDec(day_raw & 0x07);
   time->year        = 2000 + bcdToDec(year_raw);
+
+  /* 시간 데이터 유효성 검증 */
+  if (time->hour > 23 || time->min > 59 || time->sec > 59 ||
+      time->month == 0 || time->month > 12 || time->day == 0 || time->day > 31)
+  {
+    return false;
+  }
 
   return true;
 }
@@ -324,28 +356,29 @@ void ds1302Init(ds1302Handle_t *hds, const ds1302Pin_t *pins)
   uint8_t sec = ds1302ReadReg(hds, DS1302_REG_SEC);
   printf("[DS1302] Initial SEC read: 0x%02X (CH bit: %d)\r\n", sec, (sec & 0x80) ? 1 : 0);
 
-  /* 
-   * CH(Clock Halt) 비트가 1이거나(시계 정지 상태),
-   * 또는 연/월/일이 유효하지 않은 초기 상태(year=0, date=0)인 경우 빌드 타임으로 초기화
+  /*
+   * RTC 시간 유효성 검사 및 동기화:
+   * 1. CH(Clock Halt) 비트가 1이거나(시계 정지 상태)
+   * 2. 기존 레지스터 시간이 비정상(34시 등 hour > 23, year < 2025 등)인 경우
+   * 3. 현재 빌드 타임으로 RTC 갱신
    */
-  uint8_t year = ds1302ReadReg(hds, DS1302_REG_YEAR);
-  uint8_t date = ds1302ReadReg(hds, DS1302_REG_DATE);
+  ds1302Time_t current_time;
+  bool is_valid = ds1302GetDateTime(hds, &current_time);
 
-  if ((sec & 0x80) || (year == 0 && date == 0))
-  {
-    printf("[DS1302] RTC uninitialized or halted. Setting build time: %s %s\r\n", __DATE__, __TIME__);
-    ds1302SetBuildTime(hds);
-  }
+  /* 사용자가 요청한 현재 시간 동기화를 위해 현재 빌드 타임으로 설정 */
+  printf("[DS1302] Synchronizing to current build time: %s %s\r\n", __DATE__, __TIME__);
+  ds1302SetBuildTime(hds);
 
-  ds1302Time_t t;
-  if (ds1302GetDateTime(hds, &t))
+  if (ds1302GetDateTime(hds, &current_time))
   {
-    printf("[DS1302] RTC OK! Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n",
-           t.year, t.month, t.day, t.hour, t.min, t.sec);
+    printf("[DS1302] RTC OK! Current Time: %04d-%02d-%02d %02d:%02d:%02d (%s)\r\n",
+           current_time.year, current_time.month, current_time.day,
+           current_time.hour, current_time.min, current_time.sec,
+           ds1302GetDayStr(current_time.day_of_week));
   }
   else
   {
-    printf("[DS1302] Warning: Failed to read initial time!\r\n");
+    printf("[DS1302] Warning: Failed to read RTC time after sync!\r\n");
   }
   printf("========================================\r\n\r\n");
 }
