@@ -179,6 +179,52 @@ static uint8_t ds1302ReadReg(ds1302Handle_t *hds, uint8_t reg)
   return val;
 }
 
+static void ds1302ReadBurstClock(ds1302Handle_t *hds, uint8_t *buf)
+{
+  RST_LOW(hds);
+  CLK_LOW(hds);
+  delayUs(4);
+
+  RST_HIGH(hds);
+  delayUs(4);
+
+  ds1302WriteByte(hds, DS1302_REG_BURST_CLOCK | 0x01); /* 0xBF: Clock Burst Read */
+
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    buf[i] = ds1302ReadByte(hds);
+  }
+
+  delayUs(2);
+  RST_LOW(hds);
+  delayUs(4);
+}
+
+static void ds1302WriteBurstClock(ds1302Handle_t *hds, const uint8_t *buf)
+{
+  ds1302WriteReg(hds, DS1302_REG_WP, 0x00); /* Write Protect 해제 */
+
+  RST_LOW(hds);
+  CLK_LOW(hds);
+  delayUs(4);
+
+  RST_HIGH(hds);
+  delayUs(4);
+
+  ds1302WriteByte(hds, DS1302_REG_BURST_CLOCK & 0xFE); /* 0xBE: Clock Burst Write */
+
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    ds1302WriteByte(hds, buf[i]);
+  }
+
+  delayUs(2);
+  RST_LOW(hds);
+  delayUs(4);
+
+  ds1302WriteReg(hds, DS1302_REG_WP, 0x80); /* Write Protect 활성화 */
+}
+
 static const char* const day_names[] = {
   "ERR", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
@@ -206,17 +252,17 @@ void ds1302SetDateTime(ds1302Handle_t *hds, const ds1302Time_t *time)
   if (!hds || !time)
     return;
 
-  ds1302WriteReg(hds, DS1302_REG_WP, 0x00); /* Write Protect 해제 */
+  uint8_t buf[8];
+  buf[0] = decToBcd(time->sec)  & 0x7F; /* CH=0 (발진기 가동) */
+  buf[1] = decToBcd(time->min)  & 0x7F;
+  buf[2] = decToBcd(time->hour) & 0x3F; /* 24시간 모드 (Bit 7 = 0) */
+  buf[3] = decToBcd(time->day)  & 0x3F;
+  buf[4] = decToBcd(time->month)       & 0x1F;
+  buf[5] = decToBcd(time->day_of_week) & 0x07;
+  buf[6] = decToBcd((uint8_t)(time->year % 100));
+  buf[7] = 0x80; /* WP Enable */
 
-  ds1302WriteReg(hds, DS1302_REG_SEC,   decToBcd(time->sec)  & 0x7F); /* CH=0 (발진기 가동) */
-  ds1302WriteReg(hds, DS1302_REG_MIN,   decToBcd(time->min)  & 0x7F);
-  ds1302WriteReg(hds, DS1302_REG_HOUR,  decToBcd(time->hour) & 0x3F); /* 24시간 모드 (Bit 7 = 0) */
-  ds1302WriteReg(hds, DS1302_REG_DATE,  decToBcd(time->day)  & 0x3F);
-  ds1302WriteReg(hds, DS1302_REG_MONTH, decToBcd(time->month)       & 0x1F);
-  ds1302WriteReg(hds, DS1302_REG_DAY,   decToBcd(time->day_of_week) & 0x07);
-  ds1302WriteReg(hds, DS1302_REG_YEAR,  decToBcd((uint8_t)(time->year % 100)));
-
-  ds1302WriteReg(hds, DS1302_REG_WP, 0x80); /* Write Protect 활성화 */
+  ds1302WriteBurstClock(hds, buf);
 }
 
 void ds1302SetTime(ds1302Handle_t *hds, uint16_t year, uint8_t month, uint8_t day,
@@ -239,23 +285,33 @@ bool ds1302GetDateTime(ds1302Handle_t *hds, ds1302Time_t *time)
   if (!hds || !time || !hds->initialized)
     return false;
 
-  uint8_t sec_raw  = ds1302ReadReg(hds, DS1302_REG_SEC);
-  uint8_t min_raw  = ds1302ReadReg(hds, DS1302_REG_MIN);
-  uint8_t hour_raw = ds1302ReadReg(hds, DS1302_REG_HOUR);
-  uint8_t date_raw = ds1302ReadReg(hds, DS1302_REG_DATE);
-  uint8_t mon_raw  = ds1302ReadReg(hds, DS1302_REG_MONTH);
-  uint8_t day_raw  = ds1302ReadReg(hds, DS1302_REG_DAY);
-  uint8_t year_raw = ds1302ReadReg(hds, DS1302_REG_YEAR);
+  uint8_t buf[8] = {0};
+  ds1302ReadBurstClock(hds, buf);
+
+  uint8_t sec_raw  = buf[0];
+  uint8_t min_raw  = buf[1];
+  uint8_t hour_raw = buf[2];
+  uint8_t date_raw = buf[3];
+  uint8_t mon_raw  = buf[4];
+  uint8_t day_raw  = buf[5];
+  uint8_t year_raw = buf[6];
 
   /* 만약 시계가 멈춘 상태(CH=1)라면 빌드 타임으로 1회 자가 복구 시도 */
   if (sec_raw & 0x80)
   {
     ds1302SetBuildTime(hds);
-    sec_raw = ds1302ReadReg(hds, DS1302_REG_SEC);
+    ds1302ReadBurstClock(hds, buf);
+    sec_raw = buf[0];
     if (sec_raw & 0x80)
     {
       return false;
     }
+    min_raw  = buf[1];
+    hour_raw = buf[2];
+    date_raw = buf[3];
+    mon_raw  = buf[4];
+    day_raw  = buf[5];
+    year_raw = buf[6];
   }
 
   time->sec         = bcdToDec(sec_raw & 0x7F);
