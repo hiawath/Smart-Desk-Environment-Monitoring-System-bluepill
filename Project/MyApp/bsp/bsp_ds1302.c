@@ -115,13 +115,10 @@ static void ds1302WriteByte(ds1302Handle_t *hds, uint8_t data)
   }
 }
 
+/* 순수 8비트 데이터 수신 (호출 전 DAT 핀이 Input 모드여야 함) */
 static uint8_t ds1302ReadByte(ds1302Handle_t *hds)
 {
   uint8_t data = 0;
-
-  /* 읽기 전 DAT 핀을 Input Pull-up 모드로 즉시 전환 (DS1302가 출력 드라이브) */
-  ds1302SetDatInput(hds);
-  delayUs(2);
 
   for (uint8_t i = 0; i < 8; i++)
   {
@@ -134,9 +131,6 @@ static uint8_t ds1302ReadByte(ds1302Handle_t *hds)
     CLK_LOW(hds);
     delayUs(2);
   }
-
-  /* 읽기 완료 후 다음 쓰기를 위해 DAT를 Output으로 복귀 */
-  ds1302SetDatOutput(hds);
 
   return data;
 }
@@ -170,11 +164,19 @@ static uint8_t ds1302ReadReg(ds1302Handle_t *hds, uint8_t reg)
   delayUs(4);
 
   ds1302WriteByte(hds, reg | 0x01); /* Read Command (Bit 0 = 1) */
+
+  /* 읽기 전 DAT 핀을 Input Pull-up 모드로 1회 전환 */
+  ds1302SetDatInput(hds);
+  delayUs(2);
+
   val = ds1302ReadByte(hds);
 
   delayUs(2);
   RST_LOW(hds);
   delayUs(4);
+
+  /* 읽기 종료 후 다음 쓰기를 위해 DAT를 Output으로 복귀 */
+  ds1302SetDatOutput(hds);
 
   return val;
 }
@@ -190,6 +192,10 @@ static void ds1302ReadBurstClock(ds1302Handle_t *hds, uint8_t *buf)
 
   ds1302WriteByte(hds, DS1302_REG_BURST_CLOCK | 0x01); /* 0xBF: Clock Burst Read */
 
+  /* 8바이트 전체 수신 동안 DAT 핀을 Input Pull-up 모드로 단 1회 유지 (버스 충돌 방지) */
+  ds1302SetDatInput(hds);
+  delayUs(2);
+
   for (uint8_t i = 0; i < 8; i++)
   {
     buf[i] = ds1302ReadByte(hds);
@@ -198,6 +204,9 @@ static void ds1302ReadBurstClock(ds1302Handle_t *hds, uint8_t *buf)
   delayUs(2);
   RST_LOW(hds);
   delayUs(4);
+
+  /* 버스트 읽기 완료 후 다음 쓰기를 위해 DAT를 Output으로 복귀 */
+  ds1302SetDatOutput(hds);
 }
 
 static void ds1302WriteBurstClock(ds1302Handle_t *hds, const uint8_t *buf)
