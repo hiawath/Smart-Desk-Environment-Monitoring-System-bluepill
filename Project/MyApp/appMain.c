@@ -15,12 +15,17 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-/* 100ms: 초음파 거리 측정 -> EMA 필터 -> 파워 FSM -> OLED 렌더링 */
+/* 33ms (30 FPS): OLED 고주사율 디스플레이 렌더링 전용 태스크 */
+static void taskOled(void)
+{
+  uiOledRender();
+}
+
+/* 100ms: 초음파 거리 측정 -> EMA 필터 -> 파워 FSM */
 static void taskFast(void)
 {
   sensorsReadDistance();
   powerUpdate();
-  uiOledRender();
 }
 
 /* 500ms: MCU 내부 온도 읽기 및 상태 LED 토글 */
@@ -44,7 +49,8 @@ static void taskEnv(void)
 }
 
 static task_t s_tasks[] = {
-  { TASK_FAST_MS,   0,   taskFast },
+  { TASK_OLED_MS,   0,   taskOled }, /* 30 FPS (33ms) 독립 렌더링 */
+  { TASK_FAST_MS,   0,   taskFast }, /* 100ms 초음파/파워 FSM */
   { TASK_MID_MS,    0,   taskMid  },
   { TASK_SLOW_MS,   0,   taskSlow },
   { TASK_ENV_MS,  500U,  taskEnv  },

@@ -4,7 +4,9 @@
 #include <stdbool.h>
 
 /* --- 스케줄러 태스크 실행 주기 (ms) --- */
-#define TASK_FAST_MS         100U   /* 초음파 거리 측정, EMA, 스마트 파워, OLED 갱신 */
+#define OLED_TARGET_FPS      30U    /* OLED 목표 주사율: 30 FPS (24 또는 30 설정 가능) */
+#define TASK_OLED_MS         (1000U / OLED_TARGET_FPS) /* 30 FPS ≈ 33ms */
+#define TASK_FAST_MS         100U   /* 초음파 거리 측정, EMA, 스마트 파워 관리 (10Hz) */
 #define TASK_MID_MS          500U   /* 내부 MCU 온도 갱신, 상태 LED 토글 */
 #define TASK_SLOW_MS         1000U  /* RTC 시간 갱신, LCD1602 갱신, UART 로그 */
 #define TASK_ENV_MS          2000U  /* DHT11 온습도 측정 (오프셋 500ms 권장) */

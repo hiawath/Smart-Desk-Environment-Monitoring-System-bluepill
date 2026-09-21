@@ -57,8 +57,8 @@ void uiOledRender(void)
     hssd1306Spi.fillRect(10, 54, bar_w, 4, SSD1306_SPI_COLOR_WHITE);
   }
 
-  /* 4. 활동 상태 스피너 (Y=3 우측 상단) */
-  hssd1306Spi.drawChar(115, 3, s_spinner[g_sys.frame_count % 4], SSD1306_SPI_COLOR_WHITE);
+  /* 4. 활동 상태 스피너 (30 FPS 기준 6프레임=약 200ms마다 회전) */
+  hssd1306Spi.drawChar(115, 3, s_spinner[(g_sys.frame_count / 6) % 4], SSD1306_SPI_COLOR_WHITE);
 
   hssd1306Spi.update();
   g_sys.frame_count++;
