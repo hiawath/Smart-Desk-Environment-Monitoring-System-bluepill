@@ -1,5 +1,7 @@
 #include "bsp_ds1302.h"
+#include "bsp_delay.h"
 #include <string.h>
+#include <stdio.h>
 
 /* DS1302 레지스터 주소 */
 #define DS1302_REG_SEC           0x80
@@ -32,10 +34,32 @@ static inline uint8_t bcdToDec(uint8_t val)
   return (uint8_t)(((val >> 4) * 10) + (val & 0x0F));
 }
 
-#include "bsp_delay.h"
+/* DAT 핀을 Output Push-Pull 모드로 전환 (MCU -> DS1302 쓰기용) */
+static void ds1302SetDatOutput(ds1302Handle_t *hds)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Pin   = hds->pins.dat_pin;
+  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(hds->pins.dat_port, &GPIO_InitStruct);
+}
+
+/* DAT 핀을 Input Pull-up 모드로 전환 (DS1302 -> MCU 읽기용) */
+static void ds1302SetDatInput(ds1302Handle_t *hds)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Pin  = hds->pins.dat_pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(hds->pins.dat_port, &GPIO_InitStruct);
+}
 
 static void ds1302GpioInit(ds1302Handle_t *hds)
 {
+  /* GPIOB 클럭 활성화 보장 */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* RST, CLK: Output Push-Pull */
@@ -60,21 +84,19 @@ static void ds1302GpioInit(ds1302Handle_t *hds)
     HAL_GPIO_Init(hds->pins.clk_port, &GPIO_InitStruct);
   }
 
-  /* DAT: Output Open-Drain with Pull-up (양방향 입출력) */
-  GPIO_InitStruct.Pin   = hds->pins.dat_pin;
-  GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull  = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(hds->pins.dat_port, &GPIO_InitStruct);
+  /* DAT: 초기 기본 Output Push-Pull 모드 */
+  ds1302SetDatOutput(hds);
 
-  /* 초기 핀 상태 */
+  /* 초기 핀 상태: CE(RST)=LOW, CLK=LOW, DAT=LOW */
   RST_LOW(hds);
   CLK_LOW(hds);
-  DAT_HIGH(hds);
+  DAT_LOW(hds);
 }
 
 static void ds1302WriteByte(ds1302Handle_t *hds, uint8_t data)
 {
+  ds1302SetDatOutput(hds);
+
   for (uint8_t i = 0; i < 8; i++)
   {
     if (data & 0x01)
@@ -97,7 +119,9 @@ static uint8_t ds1302ReadByte(ds1302Handle_t *hds)
 {
   uint8_t data = 0;
 
-  DAT_HIGH(hds);
+  /* 읽기 전 DAT 핀을 Input Pull-up 모드로 즉시 전환 (DS1302가 출력 드라이브) */
+  ds1302SetDatInput(hds);
+  delayUs(2);
 
   for (uint8_t i = 0; i < 8; i++)
   {
@@ -110,6 +134,9 @@ static uint8_t ds1302ReadByte(ds1302Handle_t *hds)
     CLK_LOW(hds);
     delayUs(2);
   }
+
+  /* 읽기 완료 후 다음 쓰기를 위해 DAT를 Output으로 복귀 */
+  ds1302SetDatOutput(hds);
 
   return data;
 }
@@ -200,7 +227,7 @@ void ds1302SetTime(ds1302Handle_t *hds, uint16_t year, uint8_t month, uint8_t da
 
 bool ds1302GetDateTime(ds1302Handle_t *hds, ds1302Time_t *time)
 {
-  if (!hds || !time)
+  if (!hds || !time || !hds->initialized)
     return false;
 
   uint8_t sec_raw  = ds1302ReadReg(hds, DS1302_REG_SEC);
@@ -211,9 +238,15 @@ bool ds1302GetDateTime(ds1302Handle_t *hds, ds1302Time_t *time)
   uint8_t day_raw  = ds1302ReadReg(hds, DS1302_REG_DAY);
   uint8_t year_raw = ds1302ReadReg(hds, DS1302_REG_YEAR);
 
+  /* 만약 시계가 멈춘 상태(CH=1)라면 빌드 타임으로 1회 자가 복구 시도 */
   if (sec_raw & 0x80)
   {
-    return false;
+    ds1302SetBuildTime(hds);
+    sec_raw = ds1302ReadReg(hds, DS1302_REG_SEC);
+    if (sec_raw & 0x80)
+    {
+      return false;
+    }
   }
 
   time->sec         = bcdToDec(sec_raw & 0x7F);
@@ -281,13 +314,38 @@ void ds1302Init(ds1302Handle_t *hds, const ds1302Pin_t *pins)
   ds1302GpioInit(hds);
   hds->initialized = true;
 
+  printf("\r\n========================================\r\n");
+  printf("[DS1302] Initializing RTC (PB12:RST, PB13:DAT, PB14:CLK)...\r\n");
+
   /* Write Protect 해제 */
   ds1302WriteReg(hds, DS1302_REG_WP, 0x00);
 
   /* Clock Halt(CH) 확인 */
   uint8_t sec = ds1302ReadReg(hds, DS1302_REG_SEC);
-  if (sec & 0x80)
+  printf("[DS1302] Initial SEC read: 0x%02X (CH bit: %d)\r\n", sec, (sec & 0x80) ? 1 : 0);
+
+  /* 
+   * CH(Clock Halt) 비트가 1이거나(시계 정지 상태),
+   * 또는 연/월/일이 유효하지 않은 초기 상태(year=0, date=0)인 경우 빌드 타임으로 초기화
+   */
+  uint8_t year = ds1302ReadReg(hds, DS1302_REG_YEAR);
+  uint8_t date = ds1302ReadReg(hds, DS1302_REG_DATE);
+
+  if ((sec & 0x80) || (year == 0 && date == 0))
   {
+    printf("[DS1302] RTC uninitialized or halted. Setting build time: %s %s\r\n", __DATE__, __TIME__);
     ds1302SetBuildTime(hds);
   }
+
+  ds1302Time_t t;
+  if (ds1302GetDateTime(hds, &t))
+  {
+    printf("[DS1302] RTC OK! Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n",
+           t.year, t.month, t.day, t.hour, t.min, t.sec);
+  }
+  else
+  {
+    printf("[DS1302] Warning: Failed to read initial time!\r\n");
+  }
+  printf("========================================\r\n\r\n");
 }

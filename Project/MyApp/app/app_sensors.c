@@ -7,7 +7,11 @@
 void sensorsInit(void)
 {
   /* 부팅 시 1회 초기 센서 스냅샷 읽기 */
-  ds1302GetDateTime(&hds1302, &g_sys.rtc_time);
+  ds1302Time_t t;
+  if (ds1302GetDateTime(&hds1302, &t))
+  {
+    g_sys.rtc_time = t;
+  }
 
   dht11Data_t dht_data = {0};
   if (dht11Read(&hdht11, &dht_data))
@@ -37,7 +41,11 @@ void sensorsReadMcuTemp(void)
 
 void sensorsReadRtc(void)
 {
-  ds1302GetDateTime(&hds1302, &g_sys.rtc_time);
+  ds1302Time_t t;
+  if (ds1302GetDateTime(&hds1302, &t))
+  {
+    g_sys.rtc_time = t;
+  }
 }
 
 void sensorsReadDistance(void)
